@@ -117,6 +117,16 @@ ALLOWED_ORIGINS="http://myapp.example.com" \
   semantica-explorer --graph my_graph.json --host 0.0.0.0 --port 8080 --no-browser
 ```
 
+### Persisting the graph
+
+The Explorer keeps its graph in memory. To keep it across restarts, set `SEMANTICA_GRAPH_PATH` to a JSON file path. The Explorer then loads that file at start-up (if it exists), saves it every `SEMANTICA_GRAPH_SAVE_INTERVAL` seconds (default `30`, `0` disables the timer) when the graph has changed, and saves once more on shutdown.
+
+```bash
+SEMANTICA_GRAPH_PATH=/data/graph.json uvicorn semantica.explorer.app:app --host 0.0.0.0 --port 8000
+```
+
+This applies to the module-level `app` (and so the Docker image). It does not apply to `semantica-explorer --graph` or to `create_app(session=...)`, which manage their own graph. Only nodes and edges are saved, not annotations. If the file exists but cannot be read, start-up fails rather than overwriting it. Run a single instance: each instance holds its own copy of the graph.
+
 ## What You Get
 
 - **Graph Explorer** — Interactive node/edge search, path finding, and neighborhood expansion. Indexed search at 0.004ms on 118k-node graphs.

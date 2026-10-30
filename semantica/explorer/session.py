@@ -647,6 +647,12 @@ class GraphSession:
         with self._lock:
             return self.annotations.pop(annotation_id, None) is not None
 
+    @property
+    def graph_revision(self) -> int:
+        """Counter that increases on every graph mutation."""
+        with self._lock:
+            return self._graph_revision
+
     def _bump_graph_revision_locked(self) -> None:
         self._graph_revision += 1
         self._cached_embeddings = None
