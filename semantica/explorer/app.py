@@ -19,6 +19,7 @@ from ..context.context_graph import ContextGraph
 from ..provenance.manager import storage_path_from_env
 from .dependencies import anonymous_access_allowed, get_expected_api_key, require_auth
 from .markdown_resources import MarkdownResourceRegistry
+from .persistence import GraphPersistence, graph_path_from_env, save_interval_from_env
 from .runtime import explorer_capabilities, install_mutation_bridge
 from .session import GraphSession
 from .ws import ConnectionManager, install_graph_updates_websocket
@@ -93,6 +94,17 @@ def create_app(
         active_session = session
         if prov_path is not None:
             active_session.set_provenance_storage_path(prov_path)
+    # Only the default session is persisted: a caller that passes its own
+    # session (e.g. `semantica-explorer --graph file.json`) already owns the
+    # graph's lifecycle.
+    graph_path = graph_path_from_env() if session is None else None
+    persistence = (
+        GraphPersistence(active_session, graph_path, save_interval_from_env())
+        if graph_path
+        else None
+    )
+    if persistence is not None:
+        persistence.load()
     markdown_resources = MarkdownResourceRegistry(active_session.graph, agent_memory)
 
     @asynccontextmanager
@@ -119,7 +131,13 @@ def create_app(
         app.state.agent_memory = agent_memory
         app.state.markdown_resources = markdown_resources
         install_mutation_bridge(app, active_session)
-        yield
+        if persistence is not None:
+            persistence.start()
+        try:
+            yield
+        finally:
+            if persistence is not None:
+                await persistence.stop()
 
     app = FastAPI(
         title="Semantica Knowledge Explorer",
